@@ -121,7 +121,7 @@ xfsrestore: Restore Status: SUCCESS
 bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  vagrant  var
 ```     
 
-5. Сконфигурировал grub для того, чтобы при старте перейти в новый /.
+5. Сконфигурировал grub для того, чтобы при старте перейти в новый /.    
 Сымитировал текущий root, сделал в него chroot и обновил grub:
 
 ```shell
