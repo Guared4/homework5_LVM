@@ -1,26 +1,27 @@
-# LVM
+## LVM
  
-Домашнее задание
+### Домашнее задание
 
-1. На имеющемся образе centos/7 - v. 1804.2
-Уменьшить том под / до 8G.
-Выделить том под /home.
-Выделить том под /var - сделать в mirror.
-/home - сделать том для снапшотов.
-Прописать монтирование в fstab. Попробовать с разными опциями и разными файловыми системами (на выбор).
-Работа со снапшотами:
-сгенерить файлы в /home/;
-снять снапшот;
-удалить часть файлов;
-восстановится со снапшота.
-* На дисках попробовать поставить btrfs/zfs — с кешем, снапшотами и разметить там каталог /opt.
-Логировать работу можно с помощью утилиты script.
+1. На имеющемся образе centos/7 - v. 1804.2   
+Уменьшить том под / до 8G.   
+Выделить том под /home.    
+Выделить том под /var - сделать в mirror.    
+/home - сделать том для снапшотов.     
+Прописать монтирование в fstab. Попробовать с разными опциями и разными файловыми системами (на выбор).     
+Работа со снапшотами:     
+сгенерить файлы в /home/;     
+снять снапшот;     
+удалить часть файлов;      
+восстановится со снапшота.      
+* На дисках попробовать поставить btrfs/zfs — с кешем, снапшотами и разметить там каталог /opt.      
+Логировать работу можно с помощью утилиты script.      
 
-Уменьшить том под / до 8G
+Уменьшить том под / до 8G      
+### Выполнение    
+1. Уменьшить том под / до 8G Выделить том под /home Выделить том под /var - сделать в mirror /home - сделать том для снапшотов Прописать монтирование в fstab.      
+Установил пакет xfsdump.     
 
-1. Уменьшить том под / до 8G Выделить том под /home Выделить том под /var - сделать в mirror /home - сделать том для снапшотов Прописать монтирование в fstab. 
-Установил пакет xfsdump.
-
+```shell
 [root@lvm vagrant]# lsblk
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                       8:0    0   40G  0 disk
@@ -33,9 +34,11 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk
 sdd                       8:48   0    1G  0 disk
 sde                       8:64   0    1G  0 disk
+```     
 
 Подготовил временный том для / раздела:
 
+```shell
 [root@lvm vagrant]# pvcreate /dev/sdb
   Physical volume "/dev/sdb" successfully created.
 
@@ -44,9 +47,11 @@ sde                       8:64   0    1G  0 disk
 
 [root@lvm vagrant]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
   Logical volume "lv_root" created.
+```    
 
 2. Создал ФС и смонтировал ее, чтобы перенести туда данные:
 
+```shell
 [root@lvm vagrant]# mkfs.xfs /dev/vg_root/lv_root
 meta-data=/dev/vg_root/lv_root   isize=512    agcount=4, agsize=655104 blks
          =                       sectsz=512   attr=2, projid32bit=1
@@ -59,9 +64,11 @@ log      =internal log           bsize=4096   blocks=2560, version=2
 realtime =none                   extsz=4096   blocks=0, rtextents=0
 
 [root@lvm vagrant]# mount /dev/vg_root/lv_root /mnt
+```     
 
 3. Скопировал все данные с / раздела в /mnt:
 
+```shell
 [root@lvm vagrant]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
 xfsrestore: using file dump (drive_simple) strategy
 xfsrestore: version 3.1.7 (dump format 3.0)
@@ -105,16 +112,19 @@ xfsdump: dump complete: 175 seconds elapsed
 xfsdump: Dump Status: SUCCESS
 xfsrestore: restore complete: 176 seconds elapsed
 xfsrestore: Restore Status: SUCCESS
-
+```     
 
 4. Проверил что скопировалось
 
+```shell
 [root@lvm vagrant]# ls /mnt
 bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  vagrant  var
+```     
 
 5. Сконфигурировал grub для того, чтобы при старте перейти в новый /.
 Сымитировал текущий root, сделал в него chroot и обновил grub:
 
+```shell
 [root@lvm vagrant]# for i in /proc/ /sys/ /dev/ /run/ /boot/; \
 > do mount --bind $i /mnt/$i; done
 
@@ -127,9 +137,11 @@ Found initrd image: /boot/initramfs-3.10.0-1160.119.1.el7.x86_64.img
 Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
 Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 done
+```     
 
 6. Обновил образ initrd
 
+```shell
 [root@lvm /]# cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
 Executing: /sbin/dracut -v initramfs-3.10.0-1160.119.1.el7.x86_64.img 3.10.0-1160.119.1.el7.x86_64 --force
 dracut module 'busybox' will not be installed, because command 'busybox' could not be found!
@@ -239,9 +251,11 @@ Skipping udev rule: 91-permissions.rules
 *** Creating image file ***
 *** Creating image file done ***
 *** Creating initramfs image file '/boot/initramfs-3.10.0-862.2.3.el7.x86_64.img' done ***
+```     
 
 7. Заменил rd.lvm.lv=VolGroup00/LogVol00 на rd.lvm.lv=vg_root/lv_root
 
+```shell
 [root@lvm boot]# lsblk
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                       8:0    0   40G  0 disk
@@ -255,8 +269,11 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk
 sdd                       8:48   0    1G  0 disk
 sde                       8:64   0    1G  0 disk
+```     
 
 8. После изменений - обновил grub
+
+```shell
 [root@lvm boot]# grub2-mkconfig -o /boot/grub2/grub.cfg
 Generating grub configuration file ...
 Found linux image: /boot/vmlinuz-3.10.0-1160.119.1.el7.x86_64
@@ -264,8 +281,11 @@ Found initrd image: /boot/initramfs-3.10.0-1160.119.1.el7.x86_64.img
 Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
 Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 done
+```     
 
 9. Перезагрузил систему. После подключения проверил, что успешно загрузился с новым рут томом
+
+```shell
 [root@lvm vagrant]# lsblk
 NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
 sda                       8:0    0   40G  0 disk
@@ -279,9 +299,11 @@ sdb                       8:16   0   10G  0 disk
 sdc                       8:32   0    2G  0 disk
 sdd                       8:48   0    1G  0 disk
 sde                       8:64   0    1G  0 disk
+```     
 
 10. Изменил размер старой VG и вернул на него рут. Для этого удалил старый LV размером в 40G и создал новый на 8G:
 
+```shell
 [root@lvm vagrant]# lvremove /dev/VolGroup00/LogVol00
 Do you really want to remove active logical volume VolGroup00/LogVol00? [y/n]: y
   Logical volume "LogVol00" successfully removed
@@ -290,9 +312,11 @@ Do you really want to remove active logical volume VolGroup00/LogVol00? [y/n]: y
 WARNING: xfs signature detected on /dev/VolGroup00/LogVol00 at offset 0. Wipe it? [y/n]: y
   Wiping xfs signature on /dev/VolGroup00/LogVol00.
   Logical volume "LogVol00" created.
+```     
 
 11. Создал файловую систему
 
+```shell
 [root@lvm vagrant]# mkfs.xfs /dev/VolGroup00/LogVol00
 meta-data=/dev/VolGroup00/LogVol00 isize=512    agcount=4, agsize=524288 blks
          =                       sectsz=512   attr=2, projid32bit=1
@@ -303,9 +327,11 @@ naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
 log      =internal log           bsize=4096   blocks=2560, version=2
          =                       sectsz=512   sunit=0 blks, lazy-count=1
 realtime =none                   extsz=4096   blocks=0, rtextents=0
+```     
 
 12. Смонтировал файловую систему, скопировал данные
 
+```shell
 [root@lvm vagrant]# mount /dev/VolGroup00/LogVol00 /mnt
 
 [root@lvm vagrant]# xfsdump -J - /dev/vg_root/lv_root | xfsrestore -J - /mnt
@@ -351,9 +377,11 @@ xfsdump: dump complete: 124 seconds elapsed
 xfsdump: Dump Status: SUCCESS
 xfsrestore: restore complete: 125 seconds elapsed
 xfsrestore: Restore Status: SUCCESS
+```     
 
 13 Переконфигурировал grub, за исключением правки /etc/grub2/grub.cfg
 
+```shell
 [root@lvm vagrant]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
 [root@lvm vagrant]# chroot /mnt/
 
@@ -474,9 +502,11 @@ Skipping udev rule: 91-permissions.rules
 *** Creating image file ***
 *** Creating image file done ***
 *** Creating initramfs image file '/boot/initramfs-3.10.0-862.2.3.el7.x86_64.img' done ***
+```     
 
 14 Не перезагружаясь и не выходя из под chroot - перенес /var. На свободных дисках создал зеркало
 
+```shell
 [root@lvm boot]# pvcreate /dev/sdc /dev/sdd
   Physical volume "/dev/sdc" successfully created.
   Physical volume "/dev/sdd" successfully created.
@@ -487,9 +517,11 @@ Skipping udev rule: 91-permissions.rules
 [root@lvm boot]# lvcreate -L 950M -m1 -n lv_var vg_var
   Rounding up size to full physical extent 952.00 MiB
   Logical volume "lv_var" created.
+```      
 
 15 Создал ФС и переместил туда /var
 
+```shell
 [root@lvm boot]# mkfs.ext4 /dev/vg_var/lv_var
 mke2fs 1.42.9 (28-Dec-2013)
 Filesystem label=
@@ -515,18 +547,24 @@ Writing superblocks and filesystem accounting information: done
 [root@lvm boot]# mount /dev/vg_var/lv_var /mnt
 
 [root@lvm boot]# cp -aR /var/* /mnt/      # rsync -avHPSAX /var/ /mnt/
+```     
 
 16 Смонтировал новый var в каталог /var
 
+```shell
 [root@lvm boot]# umount /mnt
 [root@lvm boot]# mount /dev/vg_var/lv_var /var
+```     
 
 17 Выполнил правку fstab для автоматического монтирования /var
 
+```shell
 [root@lvm boot]# echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
+```     
 
 18 Внес правки в grub, заменив rd.lvm.lv=vg_root/lv_root на rd.lvm.lv=VolGroup00/LogVol00
 
+```shell
 [root@lvm boot]# grub2-mkconfig -o /boot/grub2/grub.cfg
 Generating grub configuration file ...
 Found linux image: /boot/vmlinuz-3.10.0-1160.119.1.el7.x86_64
@@ -536,9 +574,11 @@ Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 done
 
 [root@lvm boot]# nano /etc/default/grub
+```     
 
 19 После изменений - обновил grub
 
+```shell
 [root@lvm boot]# grub2-mkconfig -o /boot/grub2/grub.cfg
 Generating grub configuration file ...
 Found linux image: /boot/vmlinuz-3.10.0-1160.119.1.el7.x86_64
@@ -546,9 +586,11 @@ Found initrd image: /boot/initramfs-3.10.0-1160.119.1.el7.x86_64.img
 Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
 Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
 done
+```     
 
 20 Перезагрузился в новый (уменьшенный root), удалл временную Volume Group
 
+```shell
 [root@lvm vagrant]# lvremove /dev/vg_root/lv_root
 Do you really want to remove active logical volume vg_root/lv_root? [y/n]: y
   Logical volume "lv_root" successfully removed
@@ -558,9 +600,11 @@ Do you really want to remove active logical volume vg_root/lv_root? [y/n]: y
 
 [root@lvm vagrant]# pvremove /dev/sdb
   Labels on physical volume "/dev/sdb" successfully wiped.
+```     
 
 21 Выделил том под /home по тому же принципу как делал для /var
 
+```shell
 [root@lvm vagrant]# lvcreate -n LogVol_Home -L 2G /dev/VolGroup00
   Logical volume "LogVol_Home" created.
 
@@ -584,23 +628,31 @@ realtime =none                   extsz=4096   blocks=0, rtextents=0
 [root@lvm vagrant]# umount /mnt
 
 [root@lvm vagrant]# mount /dev/VolGroup00/LogVol_Home /home/
+```      
 
 22 Исправил fstab для автоматического монтирования /home
 
+```shell
 [root@lvm vagrant]# echo "`blkid | grep Home | awk '{print $2}'` /home xfs defaults 0 0" >> /etc/fstab
+```     
 
 23 Создал файлы в /home/
 
+```shell
 [root@lvm vagrant]# touch /home/file{1..20}
+```     
 
 24 Снял снапшот
 
+```shell
 [root@lvm vagrant]# lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
   Rounding up size to full physical extent 128.00 MiB
   Logical volume "home_snap" created.
+```      
 
 25 Удалил часть файлов
 
+```shell
 [root@lvm vagrant]# rm -f /home/file{11..20}
 
 [root@lvm vagrant]# ll /home
@@ -616,9 +668,11 @@ total 0
 -rw-r--r--. 1 root    root     0 Nov 19 13:08 file8
 -rw-r--r--. 1 root    root     0 Nov 19 13:08 file9
 drwx------. 3 vagrant vagrant 74 May 12  2018 vagrant
+```     
 
 26 Восстановил снапшот
 
+```shell
 [root@lvm vagrant]# lvconvert --merge /dev/VolGroup00/home_snap
   Delaying merge since origin is open.
   Merging of snapshot VolGroup00/home_snap will occur on next activation of VolGroup00/LogVol_Home.
@@ -626,9 +680,11 @@ drwx------. 3 vagrant vagrant 74 May 12  2018 vagrant
 [root@lvm vagrant]# mount /home
 mount: /dev/mapper/VolGroup00-LogVol_Home is already mounted or /home busy
        /dev/mapper/VolGroup00-LogVol_Home is already mounted on /home
+```      
 
 27 Перезагрузился и проверил восстановленные файлы
 
+```shell
 [root@lvm vagrant]# ll /home/
 total 0
 -rw-r--r--. 1 root    root     0 Nov 19 13:08 file1
@@ -675,3 +731,6 @@ sdd                          8:48   0    1G  0 disk
 └─vg_var-lv_var_rimage_1   253:9    0  952M  0 lvm
   └─vg_var-lv_var          253:10   0  952M  0 lvm  /var
 sde                          8:64   0    1G  0 disk
+```     
+_________________________________     
+end
